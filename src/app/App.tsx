@@ -1,23 +1,21 @@
-import './App.css';
+import AppContext, { AppDispatchContext, useAppReducer } from './AppContext';
+import GraphRenderer from './graph/GraphRenderer';
+import AppMonitor from './AppMonitor';
+import { ThemeProvider } from "@/components/theme-provider"
 
 function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+    const [context, dispatch] = useAppReducer();
+    return (
+        <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+            <AppContext value={context}>
+                <AppDispatchContext value={dispatch}>
+                    <AppMonitor />
+                    <GraphRenderer />
+                </AppDispatchContext>
+            </AppContext>
+        </ThemeProvider>
+    );
 }
+
 
 export default App;

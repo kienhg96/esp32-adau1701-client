@@ -23,23 +23,31 @@ export interface AudioEdge {
 export interface AudioNode {
     name: string;          // string
     labelID: number;       // uint16
-    portIDs: number[];     // uint16[]
+    ports: AudioPort[];    // uint16[]
     params: AudioParam[];  // AudioParam[]
 }
 
 
 export interface AudioGraph {
+    labels: string[];      // string[]
     nodes: AudioNode[];    // AudioNode[]
     edges: AudioEdge[];    // AudioEdge[]
-    ports: AudioPort[];    // AudioPort[]
 }
 
 
-
 export function readGraph(reader: Reader): AudioGraph {
+    // Read labels
+    const labelCount = reader.readU16();
+    console.log("Label count: ", labelCount);
+    const labels: string[] = [];
+    for (let i = 0; i < labelCount; i++) {
+        const label = reader.readStr();
+        labels.push(label);
+    }
+
     // Read nodes
     const nodeCount = reader.readU16();
-    const nodes = [];
+    const nodes: AudioNode[] = [];
     for (let i = 0; i < nodeCount; i++) {
         const node = readNode(reader);
         nodes.push(node);
@@ -47,21 +55,13 @@ export function readGraph(reader: Reader): AudioGraph {
 
     // Read edges
     const edgeCount = reader.readU16();
-    const edges = [];
+    const edges: AudioEdge[] = [];
     for (let i = 0; i < edgeCount; i++) {
         const edge = readEdge(reader);
         edges.push(edge);
     }
 
-    // Read ports
-    const portCount = reader.readU16();
-    const ports = [];
-    for (let i = 0; i < portCount; i++) {
-        const port = readPort(reader);
-        ports.push(port);
-    }
-
-    return { nodes, edges, ports };
+    return { labels, nodes, edges };
 }
 
 
@@ -69,19 +69,20 @@ function readNode(reader: Reader): AudioNode {
     const name = reader.readStr();
     const labelID = reader.readU16();
     const portCount = reader.readU16();
-    const portIDs = [];
+    const ports: AudioPort[] = [];
     for (let i = 0; i < portCount; i++) {
-        const portID = reader.readU16();
-        portIDs.push(portID);
+        const port = readPort(reader);
+        ports.push(port);
     }
 
     const paramCount = reader.readU16();
-    const params = [];
+    const params: AudioParam[] = [];
     for (let i = 0; i < paramCount; i++) {
         const param = readParam(reader);
         params.push(param);
     }
-    return { name, labelID, portIDs, params };
+
+    return { name, labelID, ports, params };
 }
 
 

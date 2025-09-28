@@ -18,7 +18,7 @@ export default class Socket {
     private ws: WebSocket;
     private msgListeners: ((data: ArrayBuffer) => void)[] = [];
     private closeRequested = false;
-    private reconnectTimeout: NodeJS.Timeout | null = null;
+    private reconnectTimeout: number | null = null;
     private listeners: SocketListener[] = [];
     private connected = false;
 
@@ -41,10 +41,6 @@ export default class Socket {
             }
             this.onMessage(event.data);
         };
-        this.ws.onerror = (event) => {
-            const error = event as ErrorEvent;
-            console.error("WebSocket error", error.message);
-        };
     }
 
     addSocketListener(listener: SocketListener) {
@@ -64,6 +60,8 @@ export default class Socket {
     }
 
     send(data: ArrayBuffer) {
+        const bytes = new Uint8Array(data);
+        console.log("[Send] opcode =", bytes[0], "length =", data.byteLength);
         this.ws.send(data);
     }
 
@@ -80,8 +78,17 @@ export default class Socket {
         return this.connected;
     }
 
+    isConnecting() {
+        return this.ws.readyState === WebSocket.CONNECTING;
+    }
+
     private onMessage(data: ArrayBuffer) {
-        this.msgListeners.forEach((handler) => handler(data));
+        if (data.byteLength == 0) {
+            return;
+        }
+        const bytes = new Uint8Array(data);
+        console.log("[Recv] opcode =", bytes[0], "length =", data.byteLength);
+        this.msgListeners.forEach((listener) => listener(data));
     }
 
     private onOpen() {

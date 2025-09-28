@@ -14,6 +14,8 @@ export default class DSPClient {
     readonly wifi: WiFiHandler;
 
     constructor(url: string) {
+        console.log("DSP Client created, url:", url);
+
         this.socket = new Socket(url);
         this.audio = new AudioHandler(this.socket);
         this.sys = new SysHandler(this.socket);

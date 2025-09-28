@@ -1,4 +1,4 @@
-import Compressor, { CompressorParams } from "./compressor";
+import Compressor, { type CompressorParams } from "./compressor";
 import DSPFn from "./dsp_fn";
 
 

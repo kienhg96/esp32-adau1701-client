@@ -119,10 +119,18 @@ export class Reader {
     private position: number;
     private view: DataView;
 
-    constructor(buffer: ArrayBuffer) {
-        this.buffer = buffer;
+    constructor(buffer: ArrayBuffer | Uint8Array) {
+        if (buffer instanceof Uint8Array) {
+            this.buffer = buffer.buffer;
+        } else {
+            this.buffer = buffer;
+        }
         this.position = 0;
-        this.view = new DataView(buffer);
+        this.view = new DataView(this.buffer);
+    }
+
+    remain(): number {
+        return this.buffer.byteLength - this.position;
     }
 
     read(length: number): ArrayBuffer {
@@ -182,19 +190,38 @@ export class Reader {
     }
 
     readStr(): string {
-        // Check capacity
-        if (this.position + 2 > this.buffer.byteLength) {
-            throw new Error("Buffer overflow");
+        // Read until null terminator
+        // Find the null terminator
+        let nullTerminator = this.position;
+        while (nullTerminator < this.buffer.byteLength) {
+            if (this.view.getUint8(nullTerminator) === 0) {
+                break;
+            }
+            nullTerminator++;
         }
-        const length = this.view.getUint16(this.position, false);
-        if (this.position + 2 + length > this.buffer.byteLength) {
+
+        // Check capacity
+        if (nullTerminator >= this.buffer.byteLength) {
             throw new Error("Buffer overflow");
         }
 
-        this.position += 2;
-        const buffer = this.buffer.slice(this.position, this.position + length);
-        const value = decoder.decode(buffer);
+        // Read string
+        const str = decoder.decode(this.buffer.slice(this.position, nullTerminator));
+        this.position = nullTerminator + 1;
+        return str;
+    }
+
+    readU8Array(length: number): number[] {
+        // Check capacity
+        if (this.position + length > this.buffer.byteLength) {
+            throw new Error("Buffer overflow");
+        }
+
+        const array = new Array(length);
+        for (let i = 0; i < length; i++) {
+            array[i] = this.view.getUint8(this.position + i);
+        }
         this.position += length;
-        return value;
+        return array;
     }
 }

@@ -1,11 +1,11 @@
 import { Writer, Reader } from "../buffer";
-import ErrorCode from "./error";
+import ErrorCode, { makeError } from "./error";
 import Opcode from "./opcode";
 import Socket from "./socket";
 
 
 interface MessageCallback {
-    (error: ErrorCode, reader: Reader): void;
+    (error: Error | null, reader: Reader): void;
 }
 
 /**
@@ -13,20 +13,25 @@ interface MessageCallback {
  */
 export default abstract class Handler {
     private socket: Socket;
-    private onceCallbacks: Map<Opcode, MessageCallback> = new Map();
+    private onceCallbacks: Map<Opcode, MessageCallback[]> = new Map();
 
     constructor(socket: Socket) {
         this.socket = socket;
         this.socket.addMessageListener((data) => {
             this.handle(data);
         });
+        this.socket.addSocketListener({
+            onOpen: () => {},
+            onClose: () => this.onClose(),
+            onReconnect: () => {}
+        });
     }
 
     handle(data: ArrayBuffer) {
         const reader = new Reader(data);
         const opcode = reader.readU8();
-        const error = reader.readU8();
-        this.onMessage(opcode, error, reader);
+        const errorCode = reader.readU8();
+        this.onMessage(opcode, errorCode, reader);
     }
 
     protected send(opcode: Opcode): void;
@@ -45,7 +50,9 @@ export default abstract class Handler {
      * Wait for a single message
      */
     protected once(opcode: Opcode, callback: MessageCallback) {
-        this.onceCallbacks.set(opcode, callback);
+        const callbacks = this.onceCallbacks.get(opcode) || [];
+        callbacks.push(callback);
+        this.onceCallbacks.set(opcode, callbacks);
     }
 
     /**
@@ -53,13 +60,33 @@ export default abstract class Handler {
      */
     protected onMessage(
         opcode: Opcode,
-        error: ErrorCode,
+        errorCode: ErrorCode,
         reader: Reader
     ): void {
-        const callback = this.onceCallbacks.get(opcode);
-        if (callback) {
+        const callbacks = this.onceCallbacks.get(opcode) || [];
+        if (callbacks.length > 0) {
             this.onceCallbacks.delete(opcode);
-            callback(error, reader);
+            if (errorCode !== ErrorCode.SUCCESS) {
+                callbacks.forEach((callback) => {
+                    callback(makeError(errorCode), reader);
+                });
+            } else {
+                callbacks.forEach((callback) => {
+                    callback(null, reader);
+                });
+            }
         }
+    }
+
+    protected onClose() {
+        // Reject all pending callbacks
+        this.onceCallbacks.forEach((callbacks) => {
+            // Create empty array buffer
+            const buffer = new ArrayBuffer(0);
+            callbacks.forEach((callback) => {
+                callback(new Error("CONNECTION_CLOSED"), new Reader(buffer));
+            });
+        });
+        this.onceCallbacks.clear();
     }
 }

@@ -1,9 +1,9 @@
-import { Writer } from "../buffer";
+import { Reader, Writer } from "../buffer";
 import DSP from "../dsp/dsp";
-import ErrorCode, { makeError } from "./error";
-import { AudioGraph, readGraph } from "./graph";
+import { readGraph, type AudioGraph } from "./graph";
 import Handler from "./handler";
 import Opcode from "./opcode";
+import pako from "pako";
 
 
 export interface AudioConfigMeta {
@@ -20,24 +20,58 @@ export interface AudioConfigData {
     data: ArrayBuffer;
 }
 
+const UPGRADE_CHUNK_SIZE = 256;     // 256 bytes
+const UPGRADE_MAX_CHUNKS = 128;     // 32 KB
+
+
+interface GraphChunk {
+    /// Request ID
+    requestID: number;
+
+    /// Total size
+    totalSize: number;
+
+    /// Sent size
+    sentSize: number;
+
+    /// Data
+    data: ArrayBuffer;
+};
 
 export default class AudioHandler extends Handler {
     /**
      * Get audio graph
      */
-    graph(): Promise<AudioGraph> {
-        return new Promise((resolve, reject) => {
-            this.once(Opcode.GRAPH, (error, reader) => {
-                if (error !== ErrorCode.SUCCESS) {
-                    reject(makeError(error));
-                } else {
-                    resolve(readGraph(reader));
-                }
-            });
+    async graph(): Promise<AudioGraph> {
+        let sentSize = 0;
+        let totalSize = 0;
+        let requestID = 0; // 0 means new requestID, we will update it later
+        let recvChunks = 0;
 
-            // Send graph command
-            this.send(Opcode.GRAPH);
-        });
+        const inflator = new pako.Inflate();
+        do {
+            const chunk = await this.requestGraphChunk(requestID);
+            sentSize = chunk.sentSize;
+            totalSize = chunk.totalSize;
+            requestID = chunk.requestID;
+
+            inflator.push(chunk.data);
+            recvChunks++;
+        } while (sentSize < totalSize && recvChunks < UPGRADE_MAX_CHUNKS);
+
+        if (sentSize < totalSize) {
+            throw new Error("Graph download failed: sentSize < totalSize");
+        }
+
+        if (inflator.err) {
+            throw inflator.err;
+        }
+
+        if (!(inflator.result instanceof Uint8Array)) {
+            throw new Error("Graph download failed: Not Uint8Array");
+        }
+
+        return readGraph(new Reader(inflator.result));
     }
 
     /**
@@ -46,11 +80,10 @@ export default class AudioHandler extends Handler {
     dsp(value: DSP): Promise<void> {
         return new Promise((resolve, reject) => {
             this.once(Opcode.DSP, (error) => {
-                if (error !== ErrorCode.SUCCESS) {
-                    reject(makeError(error));
-                } else {
-                    resolve();
+                if (error) {
+                    return reject(error);
                 }
+                resolve();
             });
 
             // Send DSP command
@@ -62,16 +95,47 @@ export default class AudioHandler extends Handler {
     }
 
     /**
+     * Set audio config
+     */
+    async config(
+        file: File,
+        onProgress: (progress: number) => void = () => {}
+    ): Promise<void> {
+        onProgress(0);
+        const length = file.size;
+        await this.requestConfigMeta({ length, finish: false });
+    
+        // Send data
+        let offset = 0;
+        while (offset < length) {
+            const end = Math.min(offset + UPGRADE_CHUNK_SIZE, length);
+            const chunk = file.slice(offset, end);
+            offset = end;
+    
+            // Get the data
+            const data = await chunk.arrayBuffer();
+    
+            // Send
+            await this.requestConfigData({ data });
+    
+            // Update progress
+            onProgress(Math.round((offset / length) * 100));
+        }
+    
+        // Finish
+        await this.requestConfigMeta({ length, finish: true });
+    }
+
+    /**
      * Set audio config meta
      */
-    configMeta(meta: AudioConfigMeta): Promise<void> {
+    private requestConfigMeta(meta: AudioConfigMeta): Promise<void> {
         return new Promise((resolve, reject) => {
             this.once(Opcode.AUDIO_CONFIG_META, (error) => {
-                if (error !== ErrorCode.SUCCESS) {
-                    reject(makeError(error));
-                } else {
-                    resolve();
+                if (error) {
+                    return reject(error);
                 }
+                resolve();
             });
 
             // Send config meta command
@@ -86,20 +150,44 @@ export default class AudioHandler extends Handler {
     /**
      * Set audio config data
      */
-    configData(data: AudioConfigData): Promise<void> {
+    private requestConfigData(data: AudioConfigData): Promise<void> {
         return new Promise((resolve, reject) => {
             this.once(Opcode.AUDIO_CONFIG_DATA, (error) => {
-                if (error !== ErrorCode.SUCCESS) {
-                    reject(makeError(error));
-                } else {
-                    resolve();
+                if (error) {
+                    return reject(error);
                 }
+                resolve();
             });
 
             // Send config data command
             const writer = new Writer();
             writer.writeU8(Opcode.AUDIO_CONFIG_DATA);
             writer.write(data.data);
+            this.send(writer);
+        });
+    }
+
+    /**
+     * Request graph chunk
+     */
+    private requestGraphChunk(requestID: number): Promise<GraphChunk> {
+        return new Promise((resolve, reject) => {
+            this.once(Opcode.GRAPH, (error, reader) => {
+                if (error) {
+                    return reject(error);
+                }
+                const requestID = reader.readU32();
+                const totalSize = reader.readU32();
+                const sentSize = reader.readU32();
+                const data = reader.read(reader.remain());
+
+                resolve({ requestID, totalSize, sentSize, data });
+            });
+
+            // Send graph chunk command
+            const writer = new Writer();
+            writer.writeU8(Opcode.GRAPH);
+            writer.writeU32(requestID);
             this.send(writer);
         });
     }
