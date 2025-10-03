@@ -1,4 +1,4 @@
-import { type AudioGraph } from "../client/cmd/graph";
+import { type DSPGraph } from "../client/cmd/graph";
 import { type SocketListener } from "../client/cmd/socket";
 import DSP from "../client/dsp/dsp";
 import { type Status } from "../client/cmd/sys";
@@ -12,7 +12,7 @@ export interface ISocket {
 }
 
 export interface IAudio {
-    graph(): Promise<AudioGraph>;
+    graph(): Promise<DSPGraph>;
     dsp(value: DSP): Promise<void>;
     config(file: File): Promise<void>;
     config(file: File, onProgress: (progress: number) => void): Promise<void>;

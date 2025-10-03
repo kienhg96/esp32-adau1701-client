@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2, Upload } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import ConfirmDialog from "./dialogs/ConfirmDialog";
+import ConfirmDialog from "../../components/dialogs/ConfirmDialog";
 import client from "../../services/client";
 
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import client from "../../services/client";
+import client from "@/services/client";
 import { useAppContext, SocketState } from "../AppContext";
 import { ReactFlow, Background, type Node, type Edge, applyNodeChanges, type NodeChange } from "@xyflow/react";
 import NodeRenderer from "./NodeRenderer";
@@ -9,7 +9,7 @@ import UpgradeRenderer from "./UpgradeRenderer";
 import dagre from '@dagrejs/dagre';
 
 
-const NodeTypes = {
+const NodeTypes: Record<string, React.FC<any>> = {
     "NodeRenderer": NodeRenderer,
     "StatusRenderer": SystemRenderer,
     "WiFiRenderer": WiFiRenderer,
@@ -22,23 +22,24 @@ interface GraphState {
     edges: Edge[];
 }
 
-const BuiltinNodes = [
+
+const BuiltinNodes: Node[] = [
     {
         id: "status",
         position: { x: 0, y: 0 },
-        data: { name: "Status", ports: [] },
+        data: { name: "Status" },
         type: "StatusRenderer",
     },
     {
         id: "wifi",
         position: { x: 0, y: 0 },
-        data: { name: "WiFi", ports: [] },
+        data: { name: "WiFi" },
         type: "WiFiRenderer",
     },
     {
         id: "upgrade",
         position: { x: 0, y: 0 },
-        data: { name: "Upgrade", ports: [] },
+        data: { name: "Upgrade" },
         type: "UpgradeRenderer",
     }
 ];
@@ -130,20 +131,17 @@ async function loadGraph(): Promise<GraphState> {
         sourcePortIDs.add(edge.sourcePortID);
     });
 
-    const nodes = graph.nodes.map(node => ({
+    const nodes: Node[] = graph.nodes.map(node => ({
         id: node.name,
         position: { x: 0, y: 0 },
         data: {
             name: node.name,
-            ports: node.ports.map(port => ({
-                id: port.id,
-                output: sourcePortIDs.has(port.id)
-            }))
+            node: node,
         },
         type: "NodeRenderer",
     }));
 
-    const edges = graph.edges.map(edge => ({
+    const edges: Edge[] = graph.edges.map(edge => ({
         id: edge.name,
         source: portNodes.get(edge.sourcePortID),
         target: portNodes.get(edge.targetPortID),
@@ -151,9 +149,7 @@ async function loadGraph(): Promise<GraphState> {
         targetHandle: edge.targetPortID.toString(),
     }));
 
-    BuiltinNodes.forEach(node => {
-        nodes.push(node);
-    });
+    BuiltinNodes.forEach(node => nodes.push(node));
 
     return { nodes, edges };
 }

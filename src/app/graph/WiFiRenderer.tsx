@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table"
 import { useAppContext } from "../AppContext";
 import { useState } from "react";
-import ConfirmDialog from "./dialogs/ConfirmDialog";
+import ConfirmDialog from "../../components/dialogs/ConfirmDialog";
 import client from "../../services/client";
 
 

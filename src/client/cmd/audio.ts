@@ -1,6 +1,6 @@
 import { Reader, Writer } from "../buffer";
 import DSP from "../dsp/dsp";
-import { readGraph, type AudioGraph } from "./graph";
+import { readGraph, type DSPGraph } from "./graph";
 import Handler from "./handler";
 import Opcode from "./opcode";
 import pako from "pako";
@@ -42,7 +42,7 @@ export default class AudioHandler extends Handler {
     /**
      * Get audio graph
      */
-    async graph(): Promise<AudioGraph> {
+    async graph(): Promise<DSPGraph> {
         let sentSize = 0;
         let totalSize = 0;
         let requestID = 0; // 0 means new requestID, we will update it later

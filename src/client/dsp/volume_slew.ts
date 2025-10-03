@@ -8,8 +8,8 @@ import DSPFn from "./dsp_fn";
 export default class VolumeSlew extends DSP {
     constructor(
         address: number,
-        readonly dB: number,          // float
-        readonly slew: number | null  // uint8
+        readonly dB: number,                 // float
+        readonly slew: number | null = null  // uint8
     ) {
         super(DSPFn.volume_slew, address);
     }

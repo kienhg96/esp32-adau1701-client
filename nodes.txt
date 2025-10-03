@@ -1,0 +1,5 @@
+[x] Gain1940AlgNS - Single volume (No slew)
+[x] SWGain1940DBAlg - Single volume (With slew)
+[x] MuteNoSlewAlg - Mute (No slew)
+[x] MuteSWSlewAlg - Mute (With slew)
+[ ] MultCtrlDelGrowAlg - Delay

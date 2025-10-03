@@ -1,46 +1,50 @@
-import { Position } from "@xyflow/react";
-import { BaseHandle } from "@/components/base-handle";
-import { BaseNode, BaseNodeContent, BaseNodeFooter, BaseNodeHeader, BaseNodeHeaderTitle } from "@/components/base-node";
+import { BaseNode, BaseNodeContent, BaseNodeHeader, BaseNodeHeaderTitle } from "@/components/base-node";
 import { Rocket } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { DSPPortType, type DSPNode, type DSPPort } from "../../client/cmd/graph";
+import { BaseHandle } from "@/components/base-handle";
+import { Position } from "@xyflow/react";
+import getNodeFC from "./nodes/Nodes";
+import { useMemo } from "react";
 
-
-interface PortInfo {
-    id: number;
-    output: boolean;
-}
 
 interface NodeRendererProps {
     data: {
-        name: String;
-        ports: PortInfo[];
+        name: string;
+        node?: DSPNode;
     };
 }
 
+interface NodeHandleProps {
+    port: DSPPort;
+}
+
+
+function NodeHandle({ port }: NodeHandleProps) {
+    const output = (port.type === DSPPortType.Output);
+    return (
+        <BaseHandle
+            id={port.id.toString()}
+            type={output ? "source" : "target"}
+            position={output ? Position.Right : Position.Left}
+        />
+    );
+}
+
 function NodeRenderer({ data }: NodeRendererProps) {
-    const { name, ports } = data;
+    const { name, node } = data;
+    const NodeFC = useMemo(() => getNodeFC(node), [node]);
     return (
         <BaseNode>
             <BaseNodeHeader className="border-b">
                 <Rocket className="size-4" />
-                <BaseNodeHeaderTitle>In/Out</BaseNodeHeaderTitle>
+                <BaseNodeHeaderTitle>{name}</BaseNodeHeaderTitle>
             </BaseNodeHeader>
             <BaseNodeContent>
-                <h3 className="text-lg">{name}</h3>
-                {ports.map(port => (
-                    <BaseHandle
-                        key={port.id}
-                        id={port.id.toString()}
-                        type={port.output ? "source" : "target"}
-                        position={port.output ? Position.Right : Position.Left}
-                    />
+                {node && <NodeFC node={node} />}
+                {node && node.ports.map(port => (
+                    <NodeHandle key={port.id} port={port} />
                 ))}
             </BaseNodeContent>
-            <BaseNodeFooter>
-                <Button variant="outline" className="nodrag w-full">
-                    Edit
-                </Button>
-            </BaseNodeFooter>
         </BaseNode>
     );
 };

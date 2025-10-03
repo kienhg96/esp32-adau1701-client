@@ -15,7 +15,7 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { useAppContext } from "../AppContext";
-import ConfirmDialog from "./dialogs/ConfirmDialog";
+import ConfirmDialog from "../../components/dialogs/ConfirmDialog";
 import client from "../../services/client";
 
 
